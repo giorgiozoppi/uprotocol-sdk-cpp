@@ -42,10 +42,10 @@ enable_testing()
 
 add_executable(
   transport_http_test
-  ${CMAKE_CURRENT_SOURCE_DIR}/../../test/transport/binding/http/
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../test/transport/binding/http
 )
 target_link_libraries(
-  hello_test
+  transport_http_test
   GTest::gtest_main
 )
 
@@ -74,8 +74,6 @@ file(GLOB HTTP_HEADERS_HPP 	"include/transport/http/*.h")
 
 
 set(http_binding_src src/transport/http/sip_hash.cpp
-		src/tools/base64.cpp
-		src/uuid/uuid_gen.cpp
 		${HTTP_HEADERS_HPP})
 
 add_library(http_binding OBJECT ${http_binding_src})
