@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.18.0)
 
 
 file(STRINGS "VERSION" VERSION_STRING)
-project(uprotocol-sdk-cpp VERSION "${VERSION_STRING}" LANGUAGES CXX )
+project(transport-binding VERSION "${VERSION_STRING}" LANGUAGES CXX )
 
 set(CMAKE_BUILD_TYPE_INIT Release)
 set(CMAKE_CXX_STANDARD 20)
@@ -26,8 +26,31 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../include/transport/binding/http)
 include (CTest)
 enable_testing()
+
+add_executable(
+  transport_http_test
+  ${CMAKE_CURRENT_SOURCE_DIR}/../../test/transport/binding/http/
+)
+target_link_libraries(
+  hello_test
+  GTest::gtest_main
+)
+
+include(GoogleTest)
+gtest_discover_tests(hello_test)
 
 if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
 	add_definitions(-D_DEBUG)
@@ -39,3 +62,43 @@ endif()
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
+find_package(libuv CONFIG REQUIRED)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L/usr/local/lib -I../ -pthread -Wall -Wpedantic")
+
+if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
+	add_compile_options(-g)
+endif()
+
+file(GLOB HTTP_HEADERS_HPP 	"include/transport/http/*.h")
+
+
+set(http_binding_src src/transport/http/sip_hash.cpp
+		src/tools/base64.cpp
+		src/uuid/uuid_gen.cpp
+		${HTTP_HEADERS_HPP})
+
+add_library(http_binding OBJECT ${http_binding_src})
+set_property(TARGET http_binding PROPERTY POSITION_INDEPENDENT_CODE 1)
+add_library(http_binding_shared SHARED $<TARGET_OBJECTS:http_binding>)
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+   target_compile_options(http_binding_shared PRIVATE -Wall -Wextra -Werror -stdlib=libc++ -fsanitize=address -fprofile-arcs -ftest-coverage -fno-omit-frame-pointer -v)
+  else()
+	target_compile_options(http_binding_shared PRIVATE -Wall -Wextra -Werror -stdlib=libc++ -v)
+  endif()
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # using GCC
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  target_compile_options(http_binding_shared PRIVATE -Wall -Wextra -Werror -g -O0 -fprofile-arcs -ftest-coverage)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lgcov -coverage")
+  else()
+  target_compile_options(http_binding_shared PRIVATE -Wall -Wextra -Werror)
+  endif()
+endif()
+
+target_link_libraries(http_binding_shared Threads::Threads spdlog::spdlog
+                    PRIVATE $<IF:$<TARGET_EXISTS:libuv::uv_a>,libuv::uv_a,libuv::uv>)
+	
