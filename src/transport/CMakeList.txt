@@ -1,0 +1,41 @@
+set(VCPKG $ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake)
+if (EXISTS ${VCPKG})
+    message(STATUS "Found VCPKG installation")
+    set(CMAKE_TOOLCHAIN_FILE ${VCPKG}
+            CACHE STRING "")
+endif ()
+
+cmake_minimum_required(VERSION 3.18.0)
+
+
+file(STRINGS "VERSION" VERSION_STRING)
+project(uprotocol-sdk-cpp VERSION "${VERSION_STRING}" LANGUAGES CXX )
+
+set(CMAKE_BUILD_TYPE_INIT Release)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Export compilation data-base for clang-tidy
+set(CMAKE_VERBOSE_MAKEFILE 0)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
+include (CTest)
+enable_testing()
+
+if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
+	add_definitions(-D_DEBUG)
+	add_link_options(-rdynamic)
+else()
+	add_definitions(-DNDEBUG)
+endif()
+
+find_package(OpenSSL REQUIRED)
+find_package(Threads REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
